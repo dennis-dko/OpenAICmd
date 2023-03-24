@@ -1,0 +1,8 @@
+---
+  general:
+    name: "OpenAICmd"
+    version: "v0.1"
+    author: "Dennis Koehler <dennis.koehler.it@gmail.com>"
+    license: "MIT"
+  application:
+    apikey: "<api_key>"
