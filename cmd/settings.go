@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"sort"
 	"unicode"
 
 	"github.com/spf13/cobra"
@@ -17,7 +18,9 @@ var settingsCmd = &cobra.Command{
 	Short: "Print the current settings of OpenAICmd",
 	Long:  `This command is used to get the current Settings of OpenAICmd.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("\nConfig: %s", viper.ConfigFileUsed())
+		fmt.Printf("\n(%s)\t\n", viper.ConfigFileUsed())
+
+		fmt.Println("\nName\t Value\t")
 
 		settings := viper.AllSettings()
 		for settingKey, settingValues := range settings {
@@ -26,11 +29,18 @@ var settingsCmd = &cobra.Command{
 				continue
 			}
 
-			for name, value := range values {
+			sortNames := make([]string, 0, len(values))
+			for name := range values {
+				sortNames = append(sortNames, name)
+			}
+			sort.Strings(sortNames)
+
+			for _, name := range sortNames {
 				runes := []rune(name)
 				runes[0] = unicode.ToUpper(runes[0])
-				fmt.Printf("\n\n%s: %s\n\n", string(runes), value)
+				fmt.Printf("\n%s\t %v\t\n", string(runes), values[name])
 			}
+			fmt.Println()
 		}
 	},
 }
