@@ -45,7 +45,7 @@ var (
 		Run: func(cmd *cobra.Command, args []string) {
 
 			if len(args) == 0 {
-				userCompletionInput := promptGetInput(instructionPromptContent, false, true, false)
+				userCompletionInput := promptGetInput(instructionPromptContent, false, true, true)
 				args = append(args, userCompletionInput)
 			}
 
@@ -69,7 +69,7 @@ var (
 				fmt.Printf("\nChatGPT answer: \n\n%s\n\n", coResponse.Choices[0].Text)
 
 				for {
-					promptGetInput(exitPromptContent, true, true, true)
+					promptGetInput(exitPromptContent, true, true, false)
 					userEditInput := promptGetInput(instructionPromptContent, false, true, true)
 
 					config.editOptions.Input = coResponse.Choices[0].Text
