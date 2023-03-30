@@ -5,22 +5,16 @@ package cmd
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 
-	"github.com/0x9ef/openai-go"
 	"github.com/erikgeiser/promptkit/confirmation"
 	"github.com/erikgeiser/promptkit/textinput"
+	"github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
-
-type chatGPTConfig struct {
-	completionOptions *openai.CompletionOptions
-	editOptions       *openai.EditOptions
-}
 
 type promptContent struct {
 	errorMsg    string
@@ -45,46 +39,40 @@ var (
 		Long: `This command is used to send your input to ChatGPT. For Example:
 	openaicmd prompt <text>`,
 		Run: func(cmd *cobra.Command, args []string) {
-
-			if len(args) == 0 {
-				userCompletionInput := promptGetInput(instructionPromptContent)
-				args = append(args, userCompletionInput)
-			}
-
 			apiKey := viper.GetString("application.apiKey")
 			if apiKey != "" {
-				chatGPT := openai.New(apiKey)
-
-				config := getCompletionConfig()
-
-				ctx := context.Background()
-				config.completionOptions.Prompt = args
-				coResponse, err := chatGPT.Completion(ctx, config.completionOptions)
-				if err != nil {
-					fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
-				}
-				if _, err := json.MarshalIndent(coResponse, "", "  "); err != nil {
-					fmt.Fprintln(os.Stderr, err)
-					os.Exit(1)
-				}
-				fmt.Printf("\n%s\n\n\n", coResponse.Choices[0].Text)
+				chatCompletion := getConfig()
+				chatGPT := openai.NewClient(apiKey)
+				messages := make([]openai.ChatCompletionMessage, 0)
 
 				for {
+					userCompletionInput := promptGetInput(instructionPromptContent)
+					messages = append(messages, openai.ChatCompletionMessage{
+						Role:    openai.ChatMessageRoleUser,
+						Content: userCompletionInput,
+					})
+
+					chatCompletion.Messages = messages
+					coResponse, err := chatGPT.CreateChatCompletion(
+						context.Background(),
+						chatCompletion,
+					)
+					if err != nil {
+						fmt.Fprintln(os.Stderr, err)
+						continue
+					}
+
+					content := coResponse.Choices[0].Message.Content
+					messages = append(messages, openai.ChatCompletionMessage{
+						Role:    openai.ChatMessageRoleAssistant,
+						Content: content,
+					})
+					fmt.Printf("\n%s\n\n\n", content)
+
 					isExit := promptGetConfirm(exitPromptContent)
 					if isExit {
 						os.Exit(1)
 					}
-					userEditInput := promptGetInput(instructionPromptContent)
-
-					config.editOptions.Input = coResponse.Choices[0].Text
-					config.editOptions.Instruction = userEditInput
-					editResponse, err := chatGPT.Edit(ctx, config.editOptions)
-					if err != nil {
-						fmt.Fprintln(os.Stderr, err)
-						os.Exit(1)
-					}
-					fmt.Printf("\n%s\n\n\n", editResponse.Choices[0].Text)
 				}
 			} else {
 				fmt.Fprintln(os.Stderr, errors.New("API-Key not found"))
@@ -98,49 +86,35 @@ func init() {
 	rootCmd.AddCommand(promptCmd)
 }
 
-func getCompletionConfig() chatGPTConfig {
-
-	completionOptions := &openai.CompletionOptions{
-		Model: openai.DefaultModel,
-	}
-
-	editOptions := &openai.EditOptions{
-		Model: openai.DefaultModel,
-	}
+func getConfig() openai.ChatCompletionRequest {
+	completionRequest := openai.ChatCompletionRequest{}
 
 	dataModel := viper.GetString("application.dataModel")
 	if dataModel != "" {
-		completionOptions.Model = openai.Model(dataModel)
+		completionRequest.Model = dataModel
 	}
 
 	maxTokens := viper.GetInt("application.maxTokens")
 	if maxTokens > 0 {
-		completionOptions.MaxTokens = maxTokens
+		completionRequest.MaxTokens = maxTokens
 	}
 
 	temperature := viper.GetFloat64("application.temperature")
 	if temperature > 0 {
-		editOptions.Temperature = float32(temperature)
-		completionOptions.Temperature = float32(temperature)
+		completionRequest.Temperature = float32(temperature)
 	}
 
 	maxCompletions := viper.GetInt("application.maxCompletions")
 	if maxCompletions > 0 {
-		editOptions.N = maxCompletions
-		completionOptions.N = maxCompletions
+		completionRequest.N = maxCompletions
 	}
 
 	sequencesStop := viper.GetStringSlice("application.sequencesStop")
 	if len(sequencesStop) > 0 {
-		completionOptions.Stop = sequencesStop
+		completionRequest.Stop = sequencesStop
 	}
 
-	config := chatGPTConfig{
-		editOptions:       editOptions,
-		completionOptions: completionOptions,
-	}
-
-	return config
+	return completionRequest
 }
 
 func promptGetConfirm(pc promptContent) bool {

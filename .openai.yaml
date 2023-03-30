@@ -6,7 +6,7 @@
     license: "MIT"
   application:
     apiKey: "<api_key>"
-    dataModel: "text-davinci-003"
+    dataModel: "gpt-3.5-turbo"
     # maxTokens: 1200
     # temperature: 0.9
     # maxCompletions: 5
