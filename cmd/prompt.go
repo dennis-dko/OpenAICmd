@@ -11,7 +11,8 @@ import (
 	"os"
 
 	"github.com/0x9ef/openai-go"
-	"github.com/manifoldco/promptui"
+	"github.com/erikgeiser/promptkit/confirmation"
+	"github.com/erikgeiser/promptkit/textinput"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -22,19 +23,20 @@ type chatGPTConfig struct {
 }
 
 type promptContent struct {
-	errorMsg string
-	label    string
+	errorMsg    string
+	label       string
+	placeholder string
 }
 
 var (
 	exitPromptContent = promptContent{
-		errorMsg: "Please provide an option.",
-		label:    "Do you want to exit?",
+		label: "Do you want to exit?",
 	}
 
 	instructionPromptContent = promptContent{
-		errorMsg: "Please provide a text.",
-		label:    "Type your instruction --> ",
+		errorMsg:    "Please provide a text.",
+		label:       "Type your instruction --> ",
+		placeholder: "Write a little bit of Wikipedia. What is that?",
 	}
 
 	promptCmd = &cobra.Command{
@@ -45,7 +47,7 @@ var (
 		Run: func(cmd *cobra.Command, args []string) {
 
 			if len(args) == 0 {
-				userCompletionInput := promptGetInput(instructionPromptContent, false, true, true)
+				userCompletionInput := promptGetInput(instructionPromptContent)
 				args = append(args, userCompletionInput)
 			}
 
@@ -66,11 +68,14 @@ var (
 					fmt.Fprintln(os.Stderr, err)
 					os.Exit(1)
 				}
-				fmt.Printf("\nChatGPT answer: \n\n%s\n\n", coResponse.Choices[0].Text)
+				fmt.Printf("\n%s\n\n\n", coResponse.Choices[0].Text)
 
 				for {
-					promptGetInput(exitPromptContent, true, true, false)
-					userEditInput := promptGetInput(instructionPromptContent, false, true, true)
+					isExit := promptGetConfirm(exitPromptContent)
+					if isExit {
+						os.Exit(1)
+					}
+					userEditInput := promptGetInput(instructionPromptContent)
 
 					config.editOptions.Input = coResponse.Choices[0].Text
 					config.editOptions.Instruction = userEditInput
@@ -79,7 +84,7 @@ var (
 						fmt.Fprintln(os.Stderr, err)
 						os.Exit(1)
 					}
-					fmt.Printf("\nChatGPT answer: \n\n%s\n\n", editResponse.Choices[0].Text)
+					fmt.Printf("\n%s\n\n\n", editResponse.Choices[0].Text)
 				}
 			} else {
 				fmt.Fprintln(os.Stderr, errors.New("API-Key not found"))
@@ -138,36 +143,33 @@ func getCompletionConfig() chatGPTConfig {
 	return config
 }
 
-func promptGetInput(pc promptContent, isConfirm bool, hideEntered bool, isValidate bool) string {
-	validate := func(input string) error {
-		if isValidate && len(input) <= 0 {
-			return errors.New(pc.errorMsg)
-		}
-		return nil
-	}
+func promptGetConfirm(pc promptContent) bool {
+	confirmInput := confirmation.New(pc.label, confirmation.Undecided)
 
-	templates := &promptui.PromptTemplates{
-		Prompt:  "{{ . }} ",
-		Valid:   "{{ . | green }} ",
-		Invalid: "{{ . | red }} ",
-		Success: "{{ . | bold }} ",
-	}
-
-	prompt := promptui.Prompt{
-		Label:       pc.label,
-		Templates:   templates,
-		Validate:    validate,
-		IsConfirm:   isConfirm,
-		HideEntered: hideEntered,
-	}
-
-	result, err := prompt.Run()
+	confirmResult, err := confirmInput.RunPrompt()
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("\nYour Instruction: \n\n%s\n\n", result)
+	return confirmResult
+}
 
-	return result
+func promptGetInput(pc promptContent) string {
+	textInput := textinput.New(pc.label)
+	textInput.Placeholder = pc.placeholder
+	textInput.Validate = func(input string) error {
+		if len(input) <= 0 {
+			return errors.New(pc.errorMsg)
+		}
+		return nil
+	}
+
+	textResult, err := textInput.RunPrompt()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	return textResult
 }
