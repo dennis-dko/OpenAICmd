@@ -3,6 +3,7 @@ module github.com/dennis-dko/openaicmd
 go 1.20
 
 require (
+	github.com/asticode/go-texttospeech v0.0.0-20160101142234-47f8213c061c
 	github.com/erikgeiser/promptkit v0.8.0
 	github.com/sashabaranov/go-openai v1.5.7
 	github.com/spf13/cobra v1.6.1
@@ -17,6 +18,7 @@ require (
 	github.com/charmbracelet/lipgloss v0.6.0 // indirect
 	github.com/containerd/console v1.0.3 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
+	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect

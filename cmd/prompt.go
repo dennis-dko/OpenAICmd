@@ -9,12 +9,18 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/asticode/go-texttospeech/texttospeech"
 	"github.com/erikgeiser/promptkit/confirmation"
 	"github.com/erikgeiser/promptkit/textinput"
 	"github.com/sashabaranov/go-openai"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
+
+type chatConfig struct {
+	completionRequest openai.ChatCompletionRequest
+	tts               bool
+}
 
 type promptContent struct {
 	errorMsg    string
@@ -41,7 +47,7 @@ var (
 		Run: func(cmd *cobra.Command, args []string) {
 			apiKey := viper.GetString("application.apiKey")
 			if apiKey != "" {
-				chatCompletion := getConfig()
+				chatConfig := getConfig()
 				chatGPT := openai.NewClient(apiKey)
 				messages := make([]openai.ChatCompletionMessage, 0)
 
@@ -52,10 +58,10 @@ var (
 						Content: userCompletionInput,
 					})
 
-					chatCompletion.Messages = messages
+					chatConfig.completionRequest.Messages = messages
 					coResponse, err := chatGPT.CreateChatCompletion(
 						context.Background(),
-						chatCompletion,
+						chatConfig.completionRequest,
 					)
 					if err != nil {
 						fmt.Fprintln(os.Stderr, err)
@@ -68,6 +74,11 @@ var (
 						Content: content,
 					})
 					fmt.Printf("\n%s\n\n\n", content)
+
+					if chatConfig.tts {
+						tts := texttospeech.NewTextToSpeech()
+						tts.Say(content)
+					}
 
 					isExit := promptGetConfirm(exitPromptContent)
 					if isExit {
@@ -86,35 +97,40 @@ func init() {
 	rootCmd.AddCommand(promptCmd)
 }
 
-func getConfig() openai.ChatCompletionRequest {
-	completionRequest := openai.ChatCompletionRequest{}
+func getConfig() chatConfig {
+	chatConfig := chatConfig{}
 
 	dataModel := viper.GetString("application.dataModel")
 	if dataModel != "" {
-		completionRequest.Model = dataModel
+		chatConfig.completionRequest.Model = dataModel
 	}
 
 	maxTokens := viper.GetInt("application.maxTokens")
 	if maxTokens > 0 {
-		completionRequest.MaxTokens = maxTokens
+		chatConfig.completionRequest.MaxTokens = maxTokens
 	}
 
 	temperature := viper.GetFloat64("application.temperature")
 	if temperature > 0 {
-		completionRequest.Temperature = float32(temperature)
+		chatConfig.completionRequest.Temperature = float32(temperature)
 	}
 
 	maxCompletions := viper.GetInt("application.maxCompletions")
 	if maxCompletions > 0 {
-		completionRequest.N = maxCompletions
+		chatConfig.completionRequest.N = maxCompletions
 	}
 
 	sequencesStop := viper.GetStringSlice("application.sequencesStop")
 	if len(sequencesStop) > 0 {
-		completionRequest.Stop = sequencesStop
+		chatConfig.completionRequest.Stop = sequencesStop
 	}
 
-	return completionRequest
+	tts := viper.GetBool("application.tts")
+	if tts {
+		chatConfig.tts = tts
+	}
+
+	return chatConfig
 }
 
 func promptGetConfirm(pc promptContent) bool {
