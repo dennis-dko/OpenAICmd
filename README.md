@@ -1,4 +1,6 @@
 # OpenAICmd
+[![Go Report Card](https://goreportcard.com/badge/github.com/dennis-dko/openaicmd)](https://goreportcard.com/report/github.com/dennis-dko/openaicmd)
+
 This application is a tool to communicate with ChatGPT via Commandline.
 
 ## Usage
